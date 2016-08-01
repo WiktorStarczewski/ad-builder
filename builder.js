@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AD2460 Builder
 // @namespace    http://tampermonkey.net/
-// @version      0.2.2
+// @version      0.2.3
 // @description  try to take over the world!
 // @author       Anonymous
 // @match        http://live.ad2460.com/game.pl
@@ -23,7 +23,8 @@ function Builder () {
             delay: 400,
             move: false,
             iterations: 1,
-            keepResources: 100000
+            keepResources: 100000,
+            precision: 10, // add X seconds to each ship build time
         };
 
         self.log = function (text) {
@@ -42,16 +43,92 @@ function Builder () {
             window.setTimeout(f, self.delay());
         };
 
-        self.build = function (ships, options) {
+        self.buildFleet = function (ships, options) {
+            if (self.handle) { self.stop(); }
 
-            if(self.handle) { self.stop(); }
+            $.extend(self.options, options);
+
+            self.log('building a fleet started');
+            self._checkRatiosAndBuild(ships, options);
+        };
+
+        self._getMyShipsCount = function (ship) {
+            var count = 0;
+
+            ad2460.myFleets.forEach(function (fleet) {
+                fleet.ships.forEach(function (fleetShip) {
+                    if (fleetShip.ship_type_id === ship.id) {
+                        count++;
+                    }
+                });
+            });
+
+            return count;
+        };
+
+        self._getRatios = function (ships) {
+            var ratios = $.map(ships, function (count, ship) {
+                // check how many such ships i have
+                var have = self._getMyShipsCount(self.findShip(ship));
+                var ratio = have / count;
+                return ratio;
+            });
+
+            return ratios;
+        };
+
+        self._pickBestShip = function (ships, ratios) {
+            var minRatio = Math.min.apply(null, ratios);
+            var shipsArray = $.map(ships, function (count, ship) {
+                return ship;
+            });
+            return minRatio < 1.0 && shipsArray[ratios.indexOf(minRatio)];
+        };
+
+        self._logRatios = function (ships, ratios) {
+            self.log('current ship ratios');
+
+            var i = 0;
+            $.each(ships, function (ship, index) {
+                console.log('  - ', ship, ' : ', ratios[i++] * 100, '%');
+            });
+        };
+
+        self._checkRatiosAndBuild = function (ships, options) {
+            var ratios = self._getRatios(ships);
+            var ship = self._pickBestShip(ships, ratios);
+
+            if (!ship) {
+                return self.stop();
+            }
+
+            ship = self.findShip(ship);
+
+            self._logRatios(ships, ratios);
+            self.log('chose ' + ship.name + ' as most optimal to build');
+
+            var interval = self.calculateTimeCost(ship);
+            self.handle = setTimeout(function () {
+                self._checkRatiosAndBuild(ships, options);
+            }, interval * 1000);
+
+            self.setTimeout(function () { self.produce(ship); });
+        };
+
+        self.getTotalTimeCost = function (ships) {
+            return ships.reduce(function (s, ship) {
+                return s + self.calculateTimeCost(ship);
+            }, 0);
+        };
+
+        self.build = function (ships, options) {
+            if (self.handle) { self.stop(); }
 
             $.extend(self.options, options);
 
             ships = ships.map(self.findShip);
-            var interval = ships.reduce(function (s, ship) {
-                return s + self.calculateTimeCost(ship);
-            }, 0);
+
+            var interval = self.getTotalTimeCost(ships);
             self.ships = ships;
             self.currentIteration = 0;
 
@@ -65,8 +142,6 @@ function Builder () {
                 self.log('starting autoproduction');
                 self.handle = setInterval(self.loop, interval * 1000);
             }
-
-            return 'success';
         };
 
         self.iterations = function () {
@@ -135,7 +210,13 @@ function Builder () {
         };
 
         self.widthdrawAndProduce = function (ship) {
-            var total = self.getShipCost(ship);
+            var spare = self.getSpareRes(ship);
+            var total = {
+                h: Math.max(-spare.h, 0),
+                i: Math.max(-spare.i, 0),
+                s: Math.max(-spare.s, 0),
+                n: Math.max(-spare.n, 0),
+            };
 
             self.log('withdrawing H' + total.h + ' I' + total.i +
                 ' S' + total.s + ' N' + total.n +
@@ -195,14 +276,20 @@ function Builder () {
 
         };
 
-
-        self.canAffordShip = function (ship) {
+        self.getSpareRes = function (ship) {
             var total = self.getShipCost(ship);
 
-            return (ad2460.resources.hassium >= total.h &&
-                ad2460.resources.indium >= total.i &&
-                ad2460.resources.strontium >= total.s &&
-                ad2460.resources.neodymium >= total.n);
+            return {
+                h: ad2460.resources.hassium - total.h,
+                i: ad2460.resources.indium - total.i,
+                s: ad2460.resources.strontium - total.s,
+                n: ad2460.resources.neodymium - total.n,
+            };
+        };
+
+        self.canAffordShip = function (ship) {
+            var spare = self.getSpareRes(ship);
+            return spare.h >= 0 && spare.i >= 0 && spare.s >= 0 && spare.n >= 0;
         };
 
         self.calculateTimeCost = function (ship) {
@@ -309,7 +396,7 @@ function Builder () {
 
             timeCost=timeCost-Math.floor(timeCost * timeCostBonus / 100);
 
-            return timeCost;
+            return timeCost + self.options.precision;
 
         };
 
