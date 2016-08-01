@@ -47,9 +47,30 @@ function Builder () {
             if (self.handle) { self.stop(); }
 
             $.extend(self.options, options);
+            self.targetShips = ships;
 
             self.log('building a fleet started');
             self._checkRatiosAndBuild(ships, options);
+        };
+
+        self.estimate = function () {
+            if (typeof self.targetShips !== 'object') {
+                return;
+            }
+
+            var times = $.map(self.targetShips, function (count, ship) {
+                var shipObject = self.findShip(ship);
+                var current = self._getMyShipsCount(shipObject);
+                return (count - current) * self.calculateTimeCost(shipObject);
+            });
+
+            var time = times.reduce(function (s, time) {
+                return s + time;
+            }, 0);
+            var hours = Math.floor(time / 60 / 60);
+            var minutes = Math.round((time - (hours * 60 * 60)) / 60);
+
+            self.log('estimated time remaining: ' + hours + ' hours ' + minutes + ' minutes');
         };
 
         self._getMyShipsCount = function (ship) {
