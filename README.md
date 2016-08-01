@@ -15,4 +15,4 @@ Examples:
 
 Roadmap:
 
-  - TBD
+  - before withdrawing, check if theres a trade up covering (at least partially) that amount, if so, trade and then withdraw the remainder
