@@ -24,6 +24,7 @@ function Builder () {
             move: false,
             iterations: 1,
             keepResources: 100000,
+            roundTo: 100000,
             precision: 10, // add X seconds to each ship build time
         };
 
@@ -232,11 +233,12 @@ function Builder () {
 
         self.widthdrawAndProduce = function (ship) {
             var spare = self.getSpareRes(ship);
+            var roundTo = self.options.roundTo;
             var total = {
-                h: Math.max(-spare.h, 0),
-                i: Math.max(-spare.i, 0),
-                s: Math.max(-spare.s, 0),
-                n: Math.max(-spare.n, 0),
+                h: Math.ceil(Math.max(-spare.h, 0) / roundTo) * roundTo,
+                i: Math.ceil(Math.max(-spare.i, 0) / roundTo) * roundTo,
+                s: Math.ceil(Math.max(-spare.s, 0) / roundTo) * roundTo,
+                n: Math.ceil(Math.max(-spare.n, 0) / roundTo) * roundTo,
             };
 
             self.log('withdrawing H' + total.h + ' I' + total.i +
