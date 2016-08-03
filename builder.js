@@ -113,6 +113,11 @@ function Builder () {
             return minRatio < 1.0 && shipsArray[ratios.indexOf(minRatio)];
         };
 
+        self.ratios = function () {
+            var ratios = self._getRatios(self.targetShips);
+            self._logRatios(self.targetShips, ratios);
+        };
+
         self._logRatios = function (ships, ratios) {
             self.log('current ship ratios');
 
@@ -140,7 +145,7 @@ function Builder () {
             }
 
             self.handle = setTimeout(function () {
-                self._checkRatiosAndBuild(ships, options);
+                self._checkRatiosAndBuild(options);
             }, interval * 1000);
 
             if (ship) {
