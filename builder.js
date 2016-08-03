@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AD2460 Builder
 // @namespace    http://tampermonkey.net/
-// @version      0.2.4
+// @version      0.2.5
 // @description  try to take over the world!
 // @author       Anonymous
 // @match        http://live.ad2460.com/game.pl
@@ -52,7 +52,11 @@ function Builder () {
             self.targetShips = ships;
 
             self.log('building a fleet started');
-            self._checkRatiosAndBuild(ships, options);
+            self._checkRatiosAndBuild(options);
+        };
+
+        self.updateFleet = function (ships) {
+            self.targetShips = ships;
         };
 
         self.estimate = function () {
@@ -117,7 +121,8 @@ function Builder () {
             });
         };
 
-        self._checkRatiosAndBuild = function (ships, options) {
+        self._checkRatiosAndBuild = function (options) {
+            var ships = self.targetShips;
             var ratios = self._getRatios(ships);
             var ship = self._pickBestShip(ships, ratios);
             var interval = 0;
