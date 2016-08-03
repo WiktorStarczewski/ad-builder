@@ -27,6 +27,7 @@ function Builder () {
             roundTo: 100000,
             recheckRatiosTimeoutSeconds: 300, // 5 minutes
             precision: 10, // add X seconds to each ship build time
+            minWithdrawal: 500000
         };
 
         self.log = function (text) {
@@ -112,6 +113,11 @@ function Builder () {
             return minRatio < 1.0 && shipsArray[ratios.indexOf(minRatio)];
         };
 
+        self.ratios = function () {
+            var ratios = self._getRatios(self.targetShips);
+            self._logRatios(self.targetShips, ratios);
+        };
+
         self._logRatios = function (ships, ratios) {
             self.log('current ship ratios');
 
@@ -139,7 +145,7 @@ function Builder () {
             }
 
             self.handle = setTimeout(function () {
-                self._checkRatiosAndBuild(ships, options);
+                self._checkRatiosAndBuild(options);
             }, interval * 1000);
 
             if (ship) {
@@ -243,12 +249,18 @@ function Builder () {
 
         self.widthdrawAndProduce = function (ship) {
             var spare = self.getSpareRes(ship);
-            var roundTo = self.options.roundTo;
+
+            var humanizeFn = function (value) {
+                var roundTo = self.options.roundTo;
+                var val = Math.ceil(Math.max(value, 0) / roundTo) * roundTo;
+                return val > 0 ? Math.max(val, self.options.minWithdrawal) : 0;
+            };
+
             var total = {
-                h: Math.ceil(Math.max(-spare.h, 0) / roundTo) * roundTo,
-                i: Math.ceil(Math.max(-spare.i, 0) / roundTo) * roundTo,
-                s: Math.ceil(Math.max(-spare.s, 0) / roundTo) * roundTo,
-                n: Math.ceil(Math.max(-spare.n, 0) / roundTo) * roundTo,
+                h: humanizeFn(-spare.h),
+                i: humanizeFn(-spare.i),
+                s: humanizeFn(-spare.s),
+                n: humanizeFn(-spare.n)
             };
 
             self.log('withdrawing H' + total.h + ' I' + total.i +
