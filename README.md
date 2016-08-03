@@ -12,6 +12,7 @@ Examples:
   - adBuilder.iterations() shows which iteration you're on currently
   - adBuilder.names() lists all the ships available
   - adBuilder.buildFleet({'glimmer':60, 'swoop': 250, 'blink': 250, 'infinite': 50, 'beacon': 3}, {precision: 7}) - will build UP TO the stated fleet
+  - adBuilder.updateFleet({'glimmer':80, 'swoop': 400, 'blink': 600, 'infinite': 50, 'beacon': 3}, {precision: 7}) - will update an existing fleet build job with new target ships
 
 Roadmap:
 
