@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AD2460 Builder
 // @namespace    http://tampermonkey.net/
-// @version      0.2.3
+// @version      0.2.4
 // @description  try to take over the world!
 // @author       Anonymous
 // @match        http://live.ad2460.com/game.pl
@@ -25,6 +25,7 @@ function Builder () {
             iterations: 1,
             keepResources: 100000,
             roundTo: 100000,
+            recheckRatiosTimeoutSeconds: 300, // 5 minutes
             precision: 10, // add X seconds to each ship build time
         };
 
@@ -119,22 +120,26 @@ function Builder () {
         self._checkRatiosAndBuild = function (ships, options) {
             var ratios = self._getRatios(ships);
             var ship = self._pickBestShip(ships, ratios);
-
-            if (!ship) {
-                return self.stop();
-            }
-
-            ship = self.findShip(ship);
+            var interval = 0;
 
             self._logRatios(ships, ratios);
-            self.log('chose ' + ship.name + ' as most optimal to build');
+            if (ship) {
+                ship = self.findShip(ship);
+                self.log('chose ' + ship.name + ' as most optimal to build');
 
-            var interval = self.calculateTimeCost(ship);
+                interval = self.calculateTimeCost(ship);
+            } else {
+                self.log('no ships to build - queueing a recheck');
+                interval = self.options.recheckRatiosTimeoutSeconds;
+            }
+
             self.handle = setTimeout(function () {
                 self._checkRatiosAndBuild(ships, options);
             }, interval * 1000);
 
-            self.setTimeout(function () { self.produce(ship); });
+            if (ship) {
+                self.setTimeout(function () { self.produce(ship); });
+            }
         };
 
         self.getTotalTimeCost = function (ships) {
