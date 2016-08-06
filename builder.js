@@ -137,6 +137,16 @@ function Builder () {
 
             // 1. check how many spots in prod queue
             var freeSpots = 24 - ad2460.productionqueue.length;
+            var leftSeconds = 0;
+
+            if (ad2460.productionqueue.length > 0) {
+                leftSeconds = $.reduce(ad2460.productionqueue, function (s, item) {
+                    var nowEpoch = Math.round(new Date().getTime() / 1000);
+                    return s + (item.building === 1 ?
+                        item.finish_time - nowEpoch :
+                        item.est_build_time);
+                }, 0);
+            }
 
             var shipsSoFar = [];
             for (var i = 0; i < freeSpots; i++) {
@@ -148,7 +158,7 @@ function Builder () {
 
             self.withdrawAndProduce(shipsSoFar);
 
-            var interval = self.getTotalTimeCost(shipsSoFar);
+            var interval = self.getTotalTimeCost(shipsSoFar) + leftSeconds;
 
             self.handle = setTimeout(function () {
                 self._checkRatiosAndBuild(options);
