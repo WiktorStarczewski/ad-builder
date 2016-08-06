@@ -94,11 +94,12 @@ function Builder () {
         };
 
         self._getRatios = function (ships, shipsSoFar) {
-
             var ratios = $.map(ships, function (count, ship) {
                 var soFar = $.grep(shipsSoFar, function (el) {
                     return el === ship;
                 }).length;
+
+                soFar *= self._getShipUnitsModifier(self.findShip(ship));
 
                 // check how many such ships i have
                 var have = self._getMyShipsCount(self.findShip(ship)) + soFar;
@@ -168,17 +169,7 @@ function Builder () {
             }
         };
 
-        self.produce = function (ship) {
-            self.log('trying to produce ' + ship.name);
-
-            if (self.canAffordShip(ship)) {
-                self._produce(ship);
-            } else {
-                self.withdrawAndProduce([ship]);
-            }
-        };
-
-        self.getShipCost = function (ship) {
+        self._getShipUnitsModifier = function (ship) {
             var modifier = 1;
 
             if (ship.vesseltype === 'Normal' ) {
@@ -189,6 +180,12 @@ function Builder () {
                     modifier = 2;
                 }
             }
+
+            return modifier;
+        };
+
+        self.getShipCost = function (ship) {
+            var modifier = self._getShipUnitsModifier(ship);
 
             var total = {
                 h: (ship.h_cost * modifier),
@@ -253,7 +250,7 @@ function Builder () {
             $.each(ships, function (index, ship) {
                 self.setTimeout(function () {
                     self._produce(self.findShip(ship));
-                }, i * 100);
+                }, i * 1000);
             });
         };
 
@@ -321,15 +318,8 @@ function Builder () {
         self.calculateTimeCost = function (ship) {
             var timeCost = ship.time_cost;
             var timeCostBonus = 0;
-
-            if (ship.vesseltype=='Normal'){
-                if (ship.vesselclass=='Fighter' ){
-                    timeCost=ship.time_cost*5;
-                }
-                else if (ship.vesselclass=='Corvette'){
-                    timeCost=ship.time_cost*2;
-                }
-            }
+            var modifier = self._getShipUnitsModifier(ship);
+            timeCost *= modifier;
 
             var playerlevel=ad2460.scores.level;
             if (playerlevel>=10){
