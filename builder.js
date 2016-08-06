@@ -168,27 +168,6 @@ function Builder () {
             }
         };
 
-        self.loop = function () {
-
-            self.currentDelay = 0;
-
-            if(self.options.iterations > 1 && self.currentIteration++ === self.options.iterations) {
-                self.stop();
-            }
-
-            self.ships.forEach(function (ship) {
-
-                if(ship) {
-                    self.setTimeout(function () { self.produce(ship); });
-
-                    if(self.options.move) {
-                        self.setTimeout(function () { self.move(ship); });
-                    }
-                }
-
-            });
-        };
-
         self.produce = function (ship) {
             self.log('trying to produce ' + ship.name);
 
