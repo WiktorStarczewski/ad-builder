@@ -119,16 +119,19 @@ function Builder () {
         };
 
         self._logRatios = function (ships, ratios) {
-            self.log('current ship ratios');
-
             var i = 0;
-            $.each(ships, function (ship, index) {
-                console.log('  - ', ship, ' : ', ratios[i++] * 100, '%');
-            });
+            var ratiosMsg = 'ratios: ' + $.map(ships, function (index, ship) {
+                return ship + ': ' + Math.round(ratios[i++] * 100) + '%';
+            }).join(' / ');
+
+            self.log(ratiosMsg);
         };
 
         self._checkRatiosAndBuild = function (options) {
             var ships = self.targetShips;
+
+
+
             var ratios = self._getRatios(ships);
             var ship = self._pickBestShip(ships, ratios);
             var interval = 0;
@@ -157,33 +160,6 @@ function Builder () {
             return ships.reduce(function (s, ship) {
                 return s + self.calculateTimeCost(ship);
             }, 0);
-        };
-
-        self.build = function (ships, options) {
-            if (self.handle) { self.stop(); }
-
-            $.extend(self.options, options);
-
-            ships = ships.map(self.findShip);
-
-            var interval = self.getTotalTimeCost(ships);
-            self.ships = ships;
-            self.currentIteration = 0;
-
-            if (self.options.iterations < 1) {
-                return self.log('you need to specify at least 1 iteration');
-            }
-
-            self.loop();
-
-            if (self.options.iterations > 1) {
-                self.log('starting autoproduction');
-                self.handle = setInterval(self.loop, interval * 1000);
-            }
-        };
-
-        self.iterations = function () {
-            self.log("Currently on iteration " + self.currentIteration + " of " + self.options.iterations);
         };
 
         self.stop = function () {
