@@ -179,9 +179,14 @@ function Builder () {
                 }
             }
 
-            self.withdrawAndProduce(shipsSoFar);
+            var interval = 0;
 
-            var interval = self.getTotalTimeCost(shipsSoFar) + leftSeconds;
+            if (shipsSoFar.length > 0) {
+                self.withdrawAndProduce(shipsSoFar);
+                interval = self.getTotalTimeCost(shipsSoFar) + leftSeconds;
+            } else {
+                interval = self.options.recheckRatiosTimeoutSeconds;
+            }
 
             self.handle = setTimeout(function () {
                 self._checkRatiosAndBuild(options);
@@ -344,11 +349,6 @@ function Builder () {
                 s: (ad2460.resources.strontium - self.options.keepResources) - total.s,
                 n: (ad2460.resources.neodymium - self.options.keepResources) - total.n,
             };
-        };
-
-        self.canAffordShip = function (ship) {
-            var spare = self.getSpareRes(ship);
-            return spare.h >= 0 && spare.i >= 0 && spare.s >= 0 && spare.n >= 0;
         };
 
         self.calculateTimeCost = function (ship) {
