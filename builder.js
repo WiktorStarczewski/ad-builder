@@ -267,7 +267,9 @@ function Builder () {
             }
 
             self._produce(self.findShip(ships[index]), function () {
-                self._produceShips(ships, ++index);
+                setTimeout(function () {
+                    self._produceShips(ships, ++index);
+                }, self.options.stepDelaySeconds * 1000);
             });
         };
 
