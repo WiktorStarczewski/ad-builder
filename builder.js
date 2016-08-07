@@ -16,16 +16,12 @@ function Builder () {
         var self = this;
 
         self.handle = null;
-        self.currentIteration = 0;
-        self.currentDelay = 0;
 
         self.options = {
-            delay: 400,
-            move: false,
-            iterations: 1,
             roundTo: 500000,
             recheckRatiosTimeoutSeconds: 300, // 5 minutes
-            minWithdrawal: 500000
+            minWithdrawal: 500000,
+            stepDelaySeconds: 4
         };
 
         self.log = function (text) {
@@ -34,10 +30,6 @@ function Builder () {
 
         self.names = function () {
             ad2460.productionitems.forEach(function (ship) { self.log(ship.name.toLowerCase()); });
-        };
-
-        self.delay = function () {
-            return self.options.delay * ++self.currentDelay;
         };
 
         self.buildFleet = function (ships, options) {
@@ -252,21 +244,30 @@ function Builder () {
             });
         };
 
-        self._produce = function (ship) {
+        self._produce = function (ship, handlerFn) {
+            self.log('producing ' + ship.name);
+
             $.post('actionhandler.pl', {
                 action:'initiate_production',
                 id:ship.id
             }, function(data) {
                 parseInfo(data);
+
+                if (handlerFn) {
+                    handlerFn();
+                }
             });
         };
 
-        self._produceShips = function (ships) {
-            var i = 0;
-            $.each(ships, function (index, ship) {
-                setTimeout(function () {
-                    self._produce(self.findShip(ship));
-                }, i++ * 3000);
+        self._produceShips = function (ships, index) {
+            index = index || 0;
+
+            if (!ships[index]) {
+                return;
+            }
+
+            self._produce(self.findShip(ships[index]), function () {
+                self._produceShips(ships, ++index);
             });
         };
 
