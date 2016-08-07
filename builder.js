@@ -16,18 +16,12 @@ function Builder () {
         var self = this;
 
         self.handle = null;
-        self.currentIteration = 0;
-        self.currentDelay = 0;
 
         self.options = {
-            delay: 400,
-            move: false,
-            iterations: 1,
-            keepResources: 100000,
-            roundTo: 100000,
+            roundTo: 500000,
             recheckRatiosTimeoutSeconds: 300, // 5 minutes
-            precision: 10, // add X seconds to each ship build time
-            minWithdrawal: 500000
+            minWithdrawal: 500000,
+            stepDelaySeconds: 4
         };
 
         self.log = function (text) {
@@ -36,14 +30,6 @@ function Builder () {
 
         self.names = function () {
             ad2460.productionitems.forEach(function (ship) { self.log(ship.name.toLowerCase()); });
-        };
-
-        self.delay = function () {
-            return self.options.delay * ++self.currentDelay;
-        };
-
-        self.setTimeout = function (f) {
-            window.setTimeout(f, self.delay());
         };
 
         self.buildFleet = function (ships, options) {
@@ -94,10 +80,16 @@ function Builder () {
             return count;
         };
 
-        self._getRatios = function (ships) {
+        self._getRatios = function (ships, shipsSoFar) {
             var ratios = $.map(ships, function (count, ship) {
+                var soFar = $.grep(shipsSoFar, function (el) {
+                    return el === ship;
+                }).length;
+
+                soFar *= self._getShipUnitsModifier(self.findShip(ship));
+
                 // check how many such ships i have
-                var have = self._getMyShipsCount(self.findShip(ship));
+                var have = self._getMyShipsCount(self.findShip(ship)) + soFar;
                 var ratio = have / count;
                 return ratio;
             });
@@ -119,71 +111,57 @@ function Builder () {
         };
 
         self._logRatios = function (ships, ratios) {
-            self.log('current ship ratios');
-
             var i = 0;
-            $.each(ships, function (ship, index) {
-                console.log('  - ', ship, ' : ', ratios[i++] * 100, '%');
-            });
+            var ratiosMsg = 'ratios: ' + $.map(ships, function (index, ship) {
+                return ship + ': ' + Math.round(ratios[i++] * 100) + '%';
+            }).join(' / ');
+
+            self.log(ratiosMsg);
         };
 
         self._checkRatiosAndBuild = function (options) {
             var ships = self.targetShips;
-            var ratios = self._getRatios(ships);
-            var ship = self._pickBestShip(ships, ratios);
-            var interval = 0;
 
-            self._logRatios(ships, ratios);
-            if (ship) {
-                ship = self.findShip(ship);
-                self.log('chose ' + ship.name + ' as most optimal to build');
+            // 1. check how many spots in prod queue
+            var freeSpots = 24 - ad2460.productionqueue.length;
+            var leftSeconds = 0;
 
-                interval = self.calculateTimeCost(ship);
-            } else {
-                self.log('no ships to build - queueing a recheck');
-                interval = self.options.recheckRatiosTimeoutSeconds;
+            if (ad2460.productionqueue.length > 0) {
+                leftSeconds = ad2460.productionqueue.reduce(function (s, item) {
+                    var nowEpoch = Math.round(new Date().getTime() / 1000);
+                    return s + (item.building === 1 ?
+                        item.finish_time - nowEpoch :
+                        item.est_build_time);
+                }, 0);
             }
+
+
+            // TODO also include items currently in queue for ratios calculation
+            // TODO also for cost calculation
+            var shipsSoFar = [];
+            for (var i = 0; i < freeSpots; i++) {
+
+                var ratios = self._getRatios(ships, shipsSoFar);
+                var ship = self._pickBestShip(ships, ratios);
+                if (ship) {
+                    shipsSoFar.push(ship);
+                    self._logRatios(ships, ratios);
+                }
+            }
+
+            self.withdrawAndProduce(shipsSoFar);
+
+            var interval = self.getTotalTimeCost(shipsSoFar) + leftSeconds;
 
             self.handle = setTimeout(function () {
                 self._checkRatiosAndBuild(options);
             }, interval * 1000);
-
-            if (ship) {
-                self.setTimeout(function () { self.produce(ship); });
-            }
         };
 
         self.getTotalTimeCost = function (ships) {
             return ships.reduce(function (s, ship) {
-                return s + self.calculateTimeCost(ship);
+                return s + self.calculateTimeCost(self.findShip(ship));
             }, 0);
-        };
-
-        self.build = function (ships, options) {
-            if (self.handle) { self.stop(); }
-
-            $.extend(self.options, options);
-
-            ships = ships.map(self.findShip);
-
-            var interval = self.getTotalTimeCost(ships);
-            self.ships = ships;
-            self.currentIteration = 0;
-
-            if (self.options.iterations < 1) {
-                return self.log('you need to specify at least 1 iteration');
-            }
-
-            self.loop();
-
-            if (self.options.iterations > 1) {
-                self.log('starting autoproduction');
-                self.handle = setInterval(self.loop, interval * 1000);
-            }
-        };
-
-        self.iterations = function () {
-            self.log("Currently on iteration " + self.currentIteration + " of " + self.options.iterations);
         };
 
         self.stop = function () {
@@ -194,38 +172,7 @@ function Builder () {
             }
         };
 
-        self.loop = function () {
-
-            self.currentDelay = 0;
-
-            if(self.options.iterations > 1 && self.currentIteration++ === self.options.iterations) {
-                self.stop();
-            }
-
-            self.ships.forEach(function (ship) {
-
-                if(ship) {
-                    self.setTimeout(function () { self.produce(ship); });
-
-                    if(self.options.move) {
-                        self.setTimeout(function () { self.move(ship); });
-                    }
-                }
-
-            });
-        };
-
-        self.produce = function (ship) {
-            self.log('trying to produce ' + ship.name);
-
-            if (self.canAffordShip(ship)) {
-                self._produce(ship);
-            } else {
-                self.widthdrawAndProduce(ship);
-            }
-        };
-
-        self.getShipCost = function (ship) {
+        self._getShipUnitsModifier = function (ship) {
             var modifier = 1;
 
             if (ship.vesseltype === 'Normal' ) {
@@ -237,24 +184,30 @@ function Builder () {
                 }
             }
 
+            return modifier;
+        };
+
+        self.getShipCost = function (ship) {
+            var modifier = self._getShipUnitsModifier(ship);
+
             var total = {
-                h: (ship.h_cost * modifier) + self.options.keepResources,
-                i: (ship.i_cost * modifier) + self.options.keepResources,
-                s: (ship.s_cost * modifier) + self.options.keepResources,
-                n: (ship.n_cost * modifier) + self.options.keepResources
+                h: (ship.h_cost * modifier),
+                i: (ship.i_cost * modifier),
+                s: (ship.s_cost * modifier),
+                n: (ship.n_cost * modifier)
             };
 
             return total;
         };
 
-        self.widthdrawAndProduce = function (ship) {
-            var spare = self.getSpareRes(ship);
-
+        self.withdrawAndProduce = function (ships) {
             var humanizeFn = function (value) {
                 var roundTo = self.options.roundTo;
                 var val = Math.ceil(Math.max(value, 0) / roundTo) * roundTo;
                 return val > 0 ? Math.max(val, self.options.minWithdrawal) : 0;
             };
+
+            var spare = self.getSpareRes(ships);
 
             var total = {
                 h: humanizeFn(-spare.h),
@@ -263,9 +216,12 @@ function Builder () {
                 n: humanizeFn(-spare.n)
             };
 
+            if (total.h + total.i + total.s + total.n === 0) {
+                return self._produceShips(ships);
+            }
+
             self.log('withdrawing H' + total.h + ' I' + total.i +
-                ' S' + total.s + ' N' + total.n +
-                ' to produce ' + ship.name);
+                ' S' + total.s + ' N' + total.n);
 
             $.post('actionhandler.pl', {
                 action: 'donate_from_bank',
@@ -278,28 +234,43 @@ function Builder () {
                 parseInfo(data);
 
                 if (data.indexOf('Error') >= 0) {
-                    self.log('error withdrawing, not attempting to produce');
+                    setTimeout(function () {
+                        self.withdrawAndProduce(ships);
+                    }, self.options.recheckRatiosTimeoutSeconds * 1000);
+                    self.log('error withdrawing, scheduling a retry');
                 } else {
-                    self._produce(ship);
+                    self._produceShips(ships);
                 }
             });
         };
 
-        self._produce = function (ship) {
-            $.post('actionhandler.pl', {action:'initiate_production', id:ship.id}, function(data){ parseInfo(data);});
+        self._produce = function (ship, handlerFn) {
+            self.log('producing ' + ship.name);
+
+            $.post('actionhandler.pl', {
+                action:'initiate_production',
+                id:ship.id
+            }, function(data) {
+                parseInfo(data);
+
+                if (handlerFn) {
+                    handlerFn();
+                }
+            });
         };
 
-        self.move = function (ship) {
-            self.setTimeout(function() { selectFleet(self.findBaseFleet()); });
-            self.setTimeout(selected_fleet_shipreassign_button_click);
-            self.setTimeout(function() { reassignShiptypeClick(ship.id); });
-            self.setTimeout(reassignSelectAll);
-            self.setTimeout(setReassignmentClick);
-            self.setTimeout(executeReassignmentClick);
-        };
+        self._produceShips = function (ships, index) {
+            index = index || 0;
 
-        self.findBaseFleet = function () {
-            return ad2460.myFleets[0].fleet_id;
+            if (!ships[index]) {
+                return;
+            }
+
+            self._produce(self.findShip(ships[index]), function () {
+                setTimeout(function () {
+                    self._produceShips(ships, ++index);
+                }, self.options.stepDelaySeconds * 1000);
+            });
         };
 
         self.findShip = function (shipName) {
@@ -321,8 +292,21 @@ function Builder () {
 
         };
 
-        self.getSpareRes = function (ship) {
-            var total = self.getShipCost(ship);
+        self.getSpareRes = function (ships) {
+            var total = {
+                h: 0,
+                i: 0,
+                s: 0,
+                n: 0
+            };
+
+            $.each(ships, function (index, ship) {
+                var cost = self.getShipCost(self.findShip(ship));
+                total.h += cost.h;
+                total.i += cost.i;
+                total.s += cost.s;
+                total.n += cost.n;
+            });
 
             return {
                 h: ad2460.resources.hassium - total.h,
@@ -340,15 +324,8 @@ function Builder () {
         self.calculateTimeCost = function (ship) {
             var timeCost = ship.time_cost;
             var timeCostBonus = 0;
-
-            if (ship.vesseltype=='Normal'){
-                if (ship.vesselclass=='Fighter' ){
-                    timeCost=ship.time_cost*5;
-                }
-                else if (ship.vesselclass=='Corvette'){
-                    timeCost=ship.time_cost*2;
-                }
-            }
+            var modifier = self._getShipUnitsModifier(ship);
+            timeCost *= modifier;
 
             var playerlevel=ad2460.scores.level;
             if (playerlevel>=10){
@@ -441,7 +418,7 @@ function Builder () {
 
             timeCost=timeCost-Math.floor(timeCost * timeCostBonus / 100);
 
-            return timeCost + self.options.precision;
+            return timeCost;
 
         };
 
