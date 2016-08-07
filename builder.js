@@ -21,7 +21,8 @@ function Builder () {
             roundTo: 500000,
             recheckRatiosTimeoutSeconds: 300, // 5 minutes
             minWithdrawal: 500000,
-            stepDelaySeconds: 4
+            stepDelaySeconds: 4,
+            keepResources: 200000
         };
 
         self.log = function (text) {
@@ -30,6 +31,35 @@ function Builder () {
 
         self.names = function () {
             ad2460.productionitems.forEach(function (ship) { self.log(ship.name.toLowerCase()); });
+        };
+
+        self._upgradeOutpost = function (outpost, followupFn) {
+            $.post('actionhandler.pl', {
+                action: 'initiate_outpost_upgrade',
+                planet_id: outpost.planet_id
+            }, function(data){
+                parseInfo(data);
+                if (followupFn) {
+                    followupFn();
+                }
+            });
+        };
+
+        self.upgradeOutposts = function (index) {
+            index = index || 0;
+            var outpost = ad2460.outposts[index];
+
+            if (!outpost) {
+                return;
+            }
+
+            if (!outpost.upgrading && outpost.level < 10) {
+                self._upgradeOutpost(outpost, function () {
+                    self.upgradeOutposts(++index);
+                });
+            } else {
+                self.upgradeOutposts(++index);
+            }
         };
 
         self.buildFleet = function (ships, options) {
@@ -309,10 +339,10 @@ function Builder () {
             });
 
             return {
-                h: ad2460.resources.hassium - total.h,
-                i: ad2460.resources.indium - total.i,
-                s: ad2460.resources.strontium - total.s,
-                n: ad2460.resources.neodymium - total.n,
+                h: (ad2460.resources.hassium - self.options.keepResources) - total.h,
+                i: (ad2460.resources.indium - self.options.keepResources) - total.i,
+                s: (ad2460.resources.strontium - self.options.keepResources) - total.s,
+                n: (ad2460.resources.neodymium - self.options.keepResources) - total.n,
             };
         };
 
