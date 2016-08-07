@@ -32,6 +32,35 @@ function Builder () {
             ad2460.productionitems.forEach(function (ship) { self.log(ship.name.toLowerCase()); });
         };
 
+        self._upgradeOutpost = function (outpost, followupFn) {
+            $.post('actionhandler.pl', {
+                action: 'initiate_outpost_upgrade',
+                planet_id: outpost.planet_id
+            }, function(data){
+                parseInfo(data);
+                if (followupFn) {
+                    followupFn();
+                }
+            });
+        };
+
+        self.upgradeOutposts = function (index) {
+            index = index || 0;
+            var outpost = ad2460.outposts[index];
+
+            if (!outpost) {
+                return;
+            }
+
+            if (!outpost.upgrading && outpost.level < 10) {
+                self._upgradeOutpost(outpost, function () {
+                    self.upgradeOutposts(++index);
+                });
+            } else {
+                self.upgradeOutposts(++index);
+            }
+        };
+
         self.buildFleet = function (ships, options) {
             if (self.handle) { self.stop(); }
 
