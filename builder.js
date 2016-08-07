@@ -23,9 +23,8 @@ function Builder () {
             delay: 400,
             move: false,
             iterations: 1,
-            roundTo: 100000,
+            roundTo: 500000,
             recheckRatiosTimeoutSeconds: 300, // 5 minutes
-            precision: 10, // add X seconds to each ship build time
             minWithdrawal: 500000
         };
 
@@ -136,7 +135,7 @@ function Builder () {
             var leftSeconds = 0;
 
             if (ad2460.productionqueue.length > 0) {
-                leftSeconds = $.reduce(ad2460.productionqueue, function (s, item) {
+                leftSeconds = ad2460.productionqueue.reduce(function (s, item) {
                     var nowEpoch = Math.round(new Date().getTime() / 1000);
                     return s + (item.building === 1 ?
                         item.finish_time - nowEpoch :
@@ -267,7 +266,7 @@ function Builder () {
             $.each(ships, function (index, ship) {
                 setTimeout(function () {
                     self._produce(self.findShip(ship));
-                }, i++ * 1000);
+                }, i++ * 3000);
             });
         };
 
@@ -416,7 +415,7 @@ function Builder () {
 
             timeCost=timeCost-Math.floor(timeCost * timeCostBonus / 100);
 
-            return timeCost + self.options.precision;
+            return timeCost;
 
         };
 
