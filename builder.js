@@ -21,7 +21,8 @@ function Builder () {
             roundTo: 500000,
             recheckRatiosTimeoutSeconds: 300, // 5 minutes
             minWithdrawal: 500000,
-            stepDelaySeconds: 4
+            stepDelaySeconds: 4,
+            keepResources: 200000
         };
 
         self.log = function (text) {
@@ -338,10 +339,10 @@ function Builder () {
             });
 
             return {
-                h: ad2460.resources.hassium - total.h,
-                i: ad2460.resources.indium - total.i,
-                s: ad2460.resources.strontium - total.s,
-                n: ad2460.resources.neodymium - total.n,
+                h: (ad2460.resources.hassium - self.options.keepResources) - total.h,
+                i: (ad2460.resources.indium - self.options.keepResources) - total.i,
+                s: (ad2460.resources.strontium - self.options.keepResources) - total.s,
+                n: (ad2460.resources.neodymium - self.options.keepResources) - total.n,
             };
         };
 
