@@ -41,10 +41,6 @@ function Builder () {
             return self.options.delay * ++self.currentDelay;
         };
 
-        self.setTimeout = function (f) {
-            window.setTimeout(f, self.delay());
-        };
-
         self.buildFleet = function (ships, options) {
             if (self.handle) { self.stop(); }
 
@@ -148,12 +144,18 @@ function Builder () {
                 }, 0);
             }
 
+
+            // TODO also include items currently in queue for ratios calculation
+            // TODO also for cost calculation
             var shipsSoFar = [];
             for (var i = 0; i < freeSpots; i++) {
+
                 var ratios = self._getRatios(ships, shipsSoFar);
                 var ship = self._pickBestShip(ships, ratios);
-                shipsSoFar.push(ship);
-                self._logRatios(ships, ratios);
+                if (ship) {
+                    shipsSoFar.push(ship);
+                    self._logRatios(ships, ratios);
+                }
             }
 
             self.withdrawAndProduce(shipsSoFar);
@@ -241,7 +243,7 @@ function Builder () {
                 parseInfo(data);
 
                 if (data.indexOf('Error') >= 0) {
-                    self.setTimeout(function () {
+                    setTimeout(function () {
                         self.withdrawAndProduce(ships);
                     }, self.options.recheckRatiosTimeoutSeconds * 1000);
                     self.log('error withdrawing, scheduling a retry');
@@ -252,29 +254,21 @@ function Builder () {
         };
 
         self._produce = function (ship) {
-            $.post('actionhandler.pl', {action:'initiate_production', id:ship.id}, function(data){ parseInfo(data);});
+            $.post('actionhandler.pl', {
+                action:'initiate_production',
+                id:ship.id
+            }, function(data) {
+                parseInfo(data);
+            });
         };
 
         self._produceShips = function (ships) {
             var i = 0;
             $.each(ships, function (index, ship) {
-                self.setTimeout(function () {
+                setTimeout(function () {
                     self._produce(self.findShip(ship));
-                }, i * 1000);
+                }, i++ * 1000);
             });
-        };
-
-        self.move = function (ship) {
-            self.setTimeout(function() { selectFleet(self.findBaseFleet()); });
-            self.setTimeout(selected_fleet_shipreassign_button_click);
-            self.setTimeout(function() { reassignShiptypeClick(ship.id); });
-            self.setTimeout(reassignSelectAll);
-            self.setTimeout(setReassignmentClick);
-            self.setTimeout(executeReassignmentClick);
-        };
-
-        self.findBaseFleet = function () {
-            return ad2460.myFleets[0].fleet_id;
         };
 
         self.findShip = function (shipName) {
