@@ -380,7 +380,7 @@ function Builder () {
                 tilts.push('sr');
             }
 
-            return tilts.join('/');
+            return tilts.length > 2 ? 'even' : tilts.join('/');
         };
 
         self._checkSector = function (quadrant, sector) {
@@ -392,6 +392,7 @@ function Builder () {
                 available_only: 1,
             }, function (data) {
                 parseInfo(data);
+                hideSimpleBox();
 
                 $.each(ad2460.prospectReport, function (index, planet) {
                     var maxOutput = planet.hassium_max_output +
