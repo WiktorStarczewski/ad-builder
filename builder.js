@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AD2460 Builder
 // @namespace    http://tampermonkey.net/
-// @version      0.3.1
+// @version      0.3.2
 // @description  try to take over the world!
 // @author       Anonymous
 // @match        http://live.ad2460.com/game.pl
