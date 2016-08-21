@@ -22,7 +22,12 @@ function Builder () {
             recheckRatiosTimeoutSeconds: 300, // 5 minutes
             minWithdrawal: 500000,
             stepDelaySeconds: 4,
-            keepResources: 200000
+            keepResources: 200000,
+        };
+
+        self.outpostOptions = {
+            outpostSectorIterationSeconds: 1,
+            outputThreshold: 130000
         };
 
         self.log = function (text) {
@@ -179,9 +184,14 @@ function Builder () {
                 }
             }
 
-            self.withdrawAndProduce(shipsSoFar);
+            var interval = 0;
 
-            var interval = self.getTotalTimeCost(shipsSoFar) + leftSeconds;
+            if (shipsSoFar.length > 0) {
+                self.withdrawAndProduce(shipsSoFar);
+                interval = self.getTotalTimeCost(shipsSoFar) + leftSeconds;
+            } else {
+                interval = self.options.recheckRatiosTimeoutSeconds;
+            }
 
             self.handle = setTimeout(function () {
                 self._checkRatiosAndBuild(options);
@@ -346,9 +356,77 @@ function Builder () {
             };
         };
 
-        self.canAffordShip = function (ship) {
-            var spare = self.getSpareRes(ship);
-            return spare.h >= 0 && spare.i >= 0 && spare.s >= 0 && spare.n >= 0;
+        self._getOutpostTilt = function (planet) {
+            var average = (planet.hassium_max_output +
+                planet.indium_max_output +
+                planet.neodymium_max_output +
+                planet.strontium_max_output) / 4;
+
+            var tilts = [];
+
+            if (planet.hassium_max_output > average) {
+                tilts.push('hs');
+            }
+
+            if (planet.indium_max_output > average) {
+                tilts.push('in');
+            }
+
+            if (planet.neodymium_max_output > average) {
+                tilts.push('nd');
+            }
+
+            if (planet.strontium_max_output > average) {
+                tilts.push('sr');
+            }
+
+            return tilts.join('/');
+        };
+
+        self._checkSector = function (quadrant, sector) {
+
+            $.post('actionhandler.pl', {
+                action: 'fetch_compiled_prospecting_report',
+                quadrant: quadrant,
+                sector: sector,
+                available_only: 1,
+            }, function (data) {
+                parseInfo(data);
+
+                $.each(ad2460.prospectReport, function (index, planet) {
+                    var maxOutput = planet.hassium_max_output +
+                        planet.indium_max_output +
+                        planet.neodymium_max_output +
+                        planet.strontium_max_output;
+
+                    if (maxOutput > self.outpostOptions.outputThreshold) {
+                        self.log('found ' + Math.round(maxOutput / 1000) + 'k ' +
+                            self._getOutpostTilt(planet) +
+                            ' outpost in ' + quadrant + ':' + sector);
+                    }
+                });
+
+                // Recursion
+                sector++;
+                if (sector > 16) {
+                    sector = 1;
+                    quadrant++;
+                }
+
+                if (quadrant > 7) {
+                    return self.log('finished looking for ops');
+                }
+
+                setTimeout(function () {
+                    self._checkSector(quadrant, sector);
+                }, self.outpostOptions.outpostSectorIterationSeconds);
+            });
+
+        };
+
+        self.findOps = function (options) {
+            self.outpostOptions = $.extend(self.outpostOptions || {}, options);
+            self._checkSector(6, 1);
         };
 
         self.calculateTimeCost = function (ship) {
