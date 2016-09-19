@@ -25,6 +25,8 @@ function Builder () {
             keepResources: 200000,
         };
 
+        self.QUEUELENGTH = 40;
+
         self.outpostOptions = {
             outpostSectorIterationSeconds: 1,
             outputThreshold: 130000
@@ -158,7 +160,7 @@ function Builder () {
             var ships = self.targetShips;
 
             // 1. check how many spots in prod queue
-            var freeSpots = 24 - ad2460.productionqueue.length;
+            var freeSpots = self.QUEUELENGTH - ad2460.productionqueue.length;
             var leftSeconds = 0;
 
             if (ad2460.productionqueue.length > 0) {
@@ -426,6 +428,7 @@ function Builder () {
         };
 
         self.findOps = function (options) {
+            self.log('starting looking for ops');
             self.outpostOptions = $.extend(self.outpostOptions || {}, options);
             self._checkSector(6, 1);
         };
