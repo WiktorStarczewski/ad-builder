@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AD2460 Builder
 // @namespace    http://tampermonkey.net/
-// @version      0.3.4
+// @version      0.3.5
 // @description  try to take over the world!
 // @author       Anonymous
 // @match        http://live.ad2460.com/game.pl
@@ -107,6 +107,9 @@ function Builder () {
             var count = 0;
 
             ad2460.myFleets.forEach(function (fleet) {
+                if (fleet.type === 'Outpost') {
+                    return;
+                }
                 fleet.ships.forEach(function (fleetShip) {
                     if (fleetShip.ship_type_id === ship.id) {
                         count++;
