@@ -388,22 +388,51 @@ function Builder () {
             return tilts.length > 2 ? 'even' : tilts.join('/');
         };
 
-        self._checkSector = function (quadrant, sector) {
+        self._getPlanetFromUniverse = function (quadrant, sector, planet_id) {
+            var ret_planet = null;
 
+            try{
+                $.each(ad2460.universe.quadrants[quadrant-1].sectors[sector-1].clusters, function (cl_ind, cluster) {
+                    $.each(cluster.planets, function (pl_ind, planet) {
+                        if (planet.planet_id === planet_id) {
+                            ret_planet = planet;
+                        }
+                    });
+                });
+            } catch (exp) {
+                debugger;
+            }
+
+            return ret_planet;
+        };
+
+        self._getPlanetStr = function (quadrant, sector, planet_id) {
+            var planet = self._getPlanetFromUniverse(quadrant, sector, planet_id);
+            return planet.strength;
+        };
+
+        self._checkSectorWorker = function (quadrant, sector) {
             $.post('actionhandler.pl', {
                 action: 'fetch_compiled_prospecting_report',
                 quadrant: quadrant,
                 sector: sector,
-                available_only: 1,
+                available_only: 0,
             }, function (data) {
                 parseInfo(data);
                 hideSimpleBox();
 
                 $.each(ad2460.prospectReport, function (index, planet) {
+                    debugger;
+
+
+                    var planetStr = self._getPlanetStr(quadrant, sector, planet.planet_id);
+
                     var maxOutput = planet.hassium_max_output +
                         planet.indium_max_output +
                         planet.neodymium_max_output +
                         planet.strontium_max_output;
+
+                    debugger;
 
                     if (maxOutput > self.outpostOptions.outputThreshold) {
                         self.log('found ' + Math.round(maxOutput / 1000) + 'k ' +
@@ -427,7 +456,17 @@ function Builder () {
                     self._checkSector(quadrant, sector);
                 }, self.outpostOptions.outpostSectorIterationSeconds);
             });
+        };
 
+        self._checkSector = function (quadrant, sector) {
+            $.post('actionhandler.pl', {
+                action: 'fetch_sector_content',
+                quadrant: quadrant,
+                sector: sector,
+            }, function (data) {
+                parseInfo(data);
+                self._checkSectorWorker(quadrant, sector);
+            });
         };
 
         self.findOps = function (options) {
