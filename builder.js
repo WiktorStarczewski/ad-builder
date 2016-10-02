@@ -23,6 +23,7 @@ function Builder () {
             minWithdrawal: 500000,
             stepDelaySeconds: 4,
             keepResources: 200000,
+            retryWithdrawal: false,
         };
 
         self.QUEUELENGTH = 40;
@@ -194,13 +195,15 @@ function Builder () {
             if (shipsSoFar.length > 0) {
                 self.withdrawAndProduce(shipsSoFar);
                 interval = self.getTotalTimeCost(shipsSoFar) + leftSeconds;
-            } else {
+            } else if (self.options.retryWithdrawal) {
                 interval = self.options.recheckRatiosTimeoutSeconds;
             }
 
-            self.handle = setTimeout(function () {
-                self._checkRatiosAndBuild(options);
-            }, interval * 1000);
+            if (interval > 0) {
+                self.handle = setTimeout(function () {
+                    self._checkRatiosAndBuild(options);
+                }, interval * 1000);
+            }
         };
 
         self.getTotalTimeCost = function (ships) {
