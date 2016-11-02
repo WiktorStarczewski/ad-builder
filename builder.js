@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AD2460 Builder
 // @namespace    http://tampermonkey.net/
-// @version      0.3.6
+// @version      0.3.7
 // @description  try to take over the world!
 // @author       Anonymous
 // @match        http://live.ad2460.com/game.pl
@@ -463,6 +463,10 @@ function Builder () {
             }
             if (playerlevel>=20){
                 timeCostBonus+=5;
+            }
+
+            if (ad2460.vip_status) {
+                timeCostBonus+=20;
             }
 
             var r=returnGameObjectById(183);
